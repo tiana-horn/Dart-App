@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:http/http.dart' as http;
 
 const version = '0.0.1';
 void main(List<String> arguments) {
@@ -6,7 +7,7 @@ void main(List<String> arguments) {
     printUsage();
   } else if (arguments.first == 'version') {
     print('Dartpedia CLI version $version');
-  } else if (arguments.first == 'search') {
+  } else if (arguments.first == 'wikipedia') {
     final inputArgs = arguments.length > 1 ? arguments.sublist(1) : null;
     searchWikipedia(inputArgs);
   } else {
@@ -14,16 +15,24 @@ void main(List<String> arguments) {
   }
 }
 
-void searchWikipedia(List<String>? arguments) {
-  final String articleTitle;
+void searchWikipedia(List<String>? arguments) async {
+  late String? articleTitle;
 
   if (arguments == null || arguments.isEmpty) {
     print('Please provide an article title.');
-    articleTitle = stdin.readLineSync() ?? '';
+    final inputFromStdin = stdin.readLineSync();
+    if (inputFromStdin == null || inputFromStdin.isEmpty) {
+      print('No article title provided. Exiting.');
+      return;
+    }
+    articleTitle = inputFromStdin;
   } else {
     articleTitle = arguments.join(' ');
   }
   print('Looking up articles about "$articleTitle". Please wait.');
+
+  var articleContent = await getWikipediaArticle(articleTitle);
+  print(articleContent);
 }
 
 void printUsage() {
@@ -31,3 +40,20 @@ void printUsage() {
     "The following commands are valid: 'help', 'version', 'search <ARTICLE-TITLE>'"
   );
 }
+
+Future<String> getWikipediaArticle(String articleTitle) async {
+  final client = http.Client();
+  final url = Uri.https(
+    'en.wikipedia.org', // API domain
+    '/api/rest_v1/page/summary/$articleTitle', // API path for the article the user input
+  );
+  final response = await client.get(url);
+
+  if (response.statusCode == 200) {
+    return response.body;
+  }
+
+  return 'Error: Failed to fetch article "$articleTitle". Status code: ${response.statusCode}';
+}
+
+
